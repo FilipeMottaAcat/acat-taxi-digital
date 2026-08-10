@@ -13,3 +13,7 @@ apps/api/prisma/dev.db
 # Local dev conveniences with machine-specific absolute paths — not portable.
 .claude/
 dev-dist/
+# Generated on Windows during local dev; Render builds on Linux and npm's optional-dependency
+# resolution (Rollup/esbuild native binaries) doesn't reliably cross platforms in the lockfile.
+# Let each environment generate its own — see the commit that added this line for the full story.
+package-lock.json
