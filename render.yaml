@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run db:generate --workspace=apps/api && npm run build --workspace=packages/shared && npm run build --workspace=apps/web
+    buildCommand: npm install --include=dev && npm run db:generate --workspace=apps/api && npm run build --workspace=apps/web
     startCommand: npm run db:deploy --workspace=apps/api && npm run start --workspace=apps/api
     envVars:
       - key: NODE_ENV
