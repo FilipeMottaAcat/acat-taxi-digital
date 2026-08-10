@@ -1,0 +1,26 @@
+-- Store all timestamps timezone-aware (TIMESTAMPTZ). Plain TIMESTAMP columns compared against
+-- now() depend on the session's timezone setting, which caused the Cotur Cidade SLA sweep to
+-- misjudge expiry on a non-UTC server (e.g. America/Sao_Paulo).
+ALTER TABLE "Admin" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ;
+
+ALTER TABLE "CoturCidadeCall" ALTER COLUMN "offerExpiresAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "acceptedAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "cancelledAt" SET DATA TYPE TIMESTAMPTZ;
+
+ALTER TABLE "CoturCidadeCallEvent" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ;
+
+ALTER TABLE "CoturViagemCall" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "acceptedAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "cancelledAt" SET DATA TYPE TIMESTAMPTZ;
+
+ALTER TABLE "Driver" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ;
+
+ALTER TABLE "DriverDeletionHistory" ALTER COLUMN "deletedAt" SET DATA TYPE TIMESTAMPTZ;
+
+ALTER TABLE "PasswordResetRequest" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "resolvedAt" SET DATA TYPE TIMESTAMPTZ;
+
+ALTER TABLE "PushSubscription" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ;

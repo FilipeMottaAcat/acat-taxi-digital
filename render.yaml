@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: acat-taxi-digital
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run db:generate --workspace=apps/api && npm run build --workspace=packages/shared && npm run build --workspace=apps/web
+    startCommand: npm run db:deploy --workspace=apps/api && npm run start --workspace=apps/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false

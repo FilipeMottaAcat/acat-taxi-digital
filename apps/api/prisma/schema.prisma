@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  admin_master
+  admin_comum
+}
+
+enum ApprovalStatus {
+  pendente
+  aprovado
+  rejeitado
+}
+
+enum OperationalStatus {
+  disponivel
+  indisponivel
+  em_viagem
+}
+
+enum ViagemCallStatus {
+  aberto
+  concluido
+  cancelado
+}
+
+enum CidadeCallType {
+  agendada
+  momento
+}
+
+enum CidadeCallStatus {
+  offering
+  waiting_for_available
+  concluido
+  cancelado
+}
+
+enum CidadeEventType {
+  offered
+  accepted
+  declined
+  timed_out
+  entered_waiting
+  cancelled
+}
+
+model Admin {
+  id           String    @id @default(cuid())
+  nome         String
+  usuario      String    @unique
+  passwordHash String
+  role         AdminRole
+  active       Boolean   @default(true)
+  createdById  String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
+
+  viagemCallsCreated CoturViagemCall[] @relation("ViagemCreatedBy")
+  cidadeCallsCreated CoturCidadeCall[] @relation("CidadeCreatedBy")
+  cidadeCallsCancelled CoturCidadeCall[] @relation("CidadeCancelledBy")
+  driversApproved    Driver[]          @relation("DriverCreatedBy")
+  passwordResetsResolved PasswordResetRequest[] @relation("ResetResolvedBy")
+  driverDeletions    DriverDeletionHistory[] @relation("DeletedBy")
+
+  @@index([active])
+}
+
+model Driver {
+  id                String             @id @default(cuid())
+  carNumber         String             @unique
+  name              String
+  phone             String             @unique
+  passwordHash      String?
+  mustSetPassword   Boolean            @default(true)
+  approvalStatus    ApprovalStatus     @default(pendente)
+  rejectionReason   String?
+  blocked           Boolean            @default(false)
+  operationalStatus OperationalStatus  @default(indisponivel)
+  tripCount         Int                @default(0)
+  /// Cotur Viagem tiebreak order, lower = higher priority. Master-editable.
+  priorityRank      Int                @default(0)
+  /// Cotur Cidade round-robin position — driver goes to the back by receiving a higher seq.
+  cidadeQueueSeq     BigInt            @default(0)
+  createdAt          DateTime          @default(now()) @db.Timestamptz
+  updatedAt           DateTime         @updatedAt @db.Timestamptz
+  createdByAdminId    String?
+  createdByAdmin       Admin?          @relation("DriverCreatedBy", fields: [createdByAdminId], references: [id])
+
+  viagemAccepted     CoturViagemCall[]  @relation("ViagemAcceptedBy")
+  cidadeCandidateFor CoturCidadeCall[]  @relation("CidadeCandidate")
+  cidadeAccepted     CoturCidadeCall[]  @relation("CidadeAcceptedBy")
+  cidadeEvents       CoturCidadeCallEvent[]
+  passwordResetRequests PasswordResetRequest[] @relation("DriverResetRequests")
+
+  @@index([approvalStatus, blocked, operationalStatus])
+  @@index([cidadeQueueSeq])
+  @@index([priorityRank])
+}
+
+model DriverDeletionHistory {
+  id               String   @id @default(cuid())
+  originalDriverId String
+  carNumber        String
+  name             String
+  phone            String
+  tripCount        Int
+  reason           String?
+  deletedByAdminId String
+  deletedByAdmin   Admin    @relation("DeletedBy", fields: [deletedByAdminId], references: [id])
+  deletedAt        DateTime @default(now()) @db.Timestamptz
+}
+
+model PasswordResetRequest {
+  id                 String    @id @default(cuid())
+  driverId           String
+  driver             Driver    @relation("DriverResetRequests", fields: [driverId], references: [id], onDelete: Cascade)
+  status             String    @default("pending") // pending | resolved
+  createdAt          DateTime  @default(now()) @db.Timestamptz
+  resolvedAt         DateTime? @db.Timestamptz
+  resolvedByAdminId  String?
+  resolvedByAdmin    Admin?    @relation("ResetResolvedBy", fields: [resolvedByAdminId], references: [id])
+
+  @@index([status])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  /// "admin" or "driver"
+  userType  String
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([userType, userId])
+}
+
+model CoturViagemCall {
+  id               String            @id @default(cuid())
+  status           ViagemCallStatus  @default(aberto)
+  tripDate         String
+  city             String
+  time             String
+  createdByAdminId String
+  createdByAdmin   Admin             @relation("ViagemCreatedBy", fields: [createdByAdminId], references: [id])
+  createdAt        DateTime          @default(now()) @db.Timestamptz
+  acceptedDriverId String?
+  acceptedDriver   Driver?           @relation("ViagemAcceptedBy", fields: [acceptedDriverId], references: [id], onDelete: SetNull)
+  acceptedCarSnap  String?
+  acceptedNameSnap String?
+  acceptedAt       DateTime? @db.Timestamptz
+  cancelledAt      DateTime? @db.Timestamptz
+
+  @@index([status])
+}
+
+model CoturCidadeCall {
+  id                  String            @id @default(cuid())
+  type                CidadeCallType
+  tripDate            String
+  city                String
+  time                String
+  status              CidadeCallStatus  @default(offering)
+  candidateDriverId   String?
+  candidateDriver     Driver?           @relation("CidadeCandidate", fields: [candidateDriverId], references: [id], onDelete: SetNull)
+  offerExpiresAt      DateTime? @db.Timestamptz
+  createdByAdminId    String
+  createdByAdmin      Admin             @relation("CidadeCreatedBy", fields: [createdByAdminId], references: [id])
+  createdAt           DateTime          @default(now()) @db.Timestamptz
+  acceptedDriverId    String?
+  acceptedDriver      Driver?           @relation("CidadeAcceptedBy", fields: [acceptedDriverId], references: [id], onDelete: SetNull)
+  acceptedCarSnap     String?
+  acceptedNameSnap    String?
+  acceptedAt          DateTime? @db.Timestamptz
+  cancelledByAdminId  String?
+  cancelledByAdmin    Admin?            @relation("CidadeCancelledBy", fields: [cancelledByAdminId], references: [id])
+  cancelledAt         DateTime? @db.Timestamptz
+
+  events CoturCidadeCallEvent[]
+
+  @@index([status])
+}
+
+model CoturCidadeCallEvent {
+  id        String          @id @default(cuid())
+  callId    String
+  call      CoturCidadeCall @relation(fields: [callId], references: [id])
+  type      CidadeEventType
+  driverId  String?
+  driver    Driver?         @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  carSnap   String?
+  nameSnap  String?
+  createdAt DateTime        @default(now()) @db.Timestamptz
+
+  @@index([callId])
+}
