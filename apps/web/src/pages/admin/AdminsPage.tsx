@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { maskUsername } from "@acat/shared";
 import { ApiError } from "../../lib/api";
 import { activateAdmin, createAdmin, deactivateAdmin, listAdmins } from "../../lib/adminsApi";
 import { useAuth } from "../../context/AuthContext";
@@ -62,7 +63,13 @@ function AddAdminForm() {
         </div>
         <div className="field">
           <label htmlFor="admin-usuario">Usuário</label>
-          <input id="admin-usuario" value={usuario} onChange={(e) => setUsuario(e.target.value)} required />
+          <input
+            id="admin-usuario"
+            value={usuario}
+            onChange={(e) => setUsuario(maskUsername(e.target.value))}
+            placeholder="ex.: joao.silva (sem espaços)"
+            required
+          />
         </div>
         <PasswordField id="admin-senha" label="Senha" value={senha} onChange={setSenha} autoComplete="new-password" />
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontSize: 13.5 }}>

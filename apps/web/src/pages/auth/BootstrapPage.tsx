@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { maskUsername } from "@acat/shared";
 import { PasswordField } from "../../components/PasswordField";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { bootstrapMaster } from "../../lib/authApi";
@@ -45,7 +46,13 @@ export function BootstrapPage() {
           </div>
           <div className="field">
             <label htmlFor="usuario">Usuário</label>
-            <input id="usuario" value={usuario} onChange={(e) => setUsuario(e.target.value)} required />
+            <input
+              id="usuario"
+              value={usuario}
+              onChange={(e) => setUsuario(maskUsername(e.target.value))}
+              placeholder="ex.: filipe.motta (sem espaços)"
+              required
+            />
           </div>
           <PasswordField id="senha" label="Senha" value={senha} onChange={setSenha} autoComplete="new-password" />
           {error && <p className="err">{error}</p>}

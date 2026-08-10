@@ -13,7 +13,7 @@ export default defineConfig({
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
       },
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["icons/favicon-48.png"],
       manifest: {
         name: "ACAT Táxi Digital",
         short_name: "ACAT Táxi",
@@ -23,8 +23,11 @@ export default defineConfig({
         background_color: "#16171a",
         display: "standalone",
         start_url: "/",
-        // TODO(task 8 - PWA): swap this placeholder for the real ACAT logo (PNG, 192/512, incl. a maskable variant).
-        icons: [{ src: "/icons/icon.svg", sizes: "any", type: "image/svg+xml" }],
+        icons: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "/icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
       },
       injectRegister: "auto",
       devOptions: { enabled: true, type: "module" },

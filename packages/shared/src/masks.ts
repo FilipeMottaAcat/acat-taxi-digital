@@ -15,3 +15,14 @@ export function maskCarNumber(value: string): string {
 export function maskDriverName(value: string): string {
   return value.replace(/[^A-Za-zÀ-ÿ\s]/g, "");
 }
+
+const COMBINING_DIACRITICS = /[̀-ͯ]/g;
+
+/** Admin login username — lowercase, no spaces (a full name typed here would silently become the username). */
+export function maskUsername(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(COMBINING_DIACRITICS, "")
+    .replace(/[^a-z0-9._-]/g, "");
+}

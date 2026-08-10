@@ -18,3 +18,11 @@ export const driverNameSchema = z
 export const passwordSchema = z
   .string()
   .min(6, "A senha precisa ter pelo menos 6 caracteres.");
+
+/** Login username for admins — no spaces, so it can never silently absorb a full name by mistake. */
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3, "Usuário deve ter pelo menos 3 caracteres.")
+  .regex(/^[a-z0-9._-]+$/, "Usuário deve conter só letras minúsculas, números, ponto, hífen ou underscore — sem espaços.");

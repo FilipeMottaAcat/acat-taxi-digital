@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { carNumberSchema, driverNameSchema, passwordSchema, phoneSchema } from "./common.js";
+import { carNumberSchema, driverNameSchema, passwordSchema, phoneSchema, usernameSchema } from "./common.js";
 
 export const bootstrapMasterSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome."),
-  usuario: z.string().trim().min(3, "Usuário deve ter pelo menos 3 caracteres.").toLowerCase(),
+  usuario: usernameSchema,
   senha: passwordSchema,
 });
 export type BootstrapMasterInput = z.infer<typeof bootstrapMasterSchema>;

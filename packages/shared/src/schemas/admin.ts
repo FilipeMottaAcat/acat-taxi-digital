@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { passwordSchema } from "./common.js";
+import { passwordSchema, usernameSchema } from "./common.js";
 
 export const createAdminSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome."),
-  usuario: z.string().trim().min(3, "Usuário deve ter pelo menos 3 caracteres.").toLowerCase(),
+  usuario: usernameSchema,
   senha: passwordSchema,
   isMaster: z.boolean().default(false),
 });
