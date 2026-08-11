@@ -82,7 +82,7 @@ model Driver {
   approvalStatus    ApprovalStatus     @default(pendente)
   rejectionReason   String?
   blocked           Boolean            @default(false)
-  operationalStatus OperationalStatus  @default(indisponivel)
+  operationalStatus OperationalStatus  @default(disponivel)
   tripCount         Int                @default(0)
   /// Cotur Viagem tiebreak order, lower = higher priority. Master-editable.
   priorityRank      Int                @default(0)
