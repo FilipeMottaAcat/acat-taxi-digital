@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Logo } from "./Logo";
 
 interface Props {
   children: ReactNode;
@@ -24,7 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div id="authScreen">
           <div className="authbox">
-            <span className="eyebrow">ACAT · Despacho</span>
+            <Logo className="logo-lg" />
             <h1>Algo deu errado</h1>
             <p className="subtle">
               A tela encontrou um erro inesperado. Tente recarregar a página — se o problema continuar, avise o

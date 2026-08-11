@@ -32,7 +32,10 @@ export function AppHeader({ title }: AppHeaderProps) {
   return (
     <header className="top">
       <div>
-        <span className="eyebrow">ACAT · Despacho</span>
+        <span className="eyebrow eyebrow-brand">
+          <img src="/icons/icon-192.png" alt="" className="brand-mark" />
+          ACAT · Despacho
+        </span>
         <h1>{title}</h1>
       </div>
       <div className="who">

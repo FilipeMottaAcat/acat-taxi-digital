@@ -4,6 +4,7 @@ import { maskCarNumber, maskDriverName } from "@acat/shared";
 import { PasswordField } from "../../components/PasswordField";
 import { PhoneField } from "../../components/PhoneField";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { Logo } from "../../components/Logo";
 import { driverSignup } from "../../lib/authApi";
 import { ApiError } from "../../lib/api";
 
@@ -36,7 +37,7 @@ export function SignupPage() {
       <div id="authScreen">
         <ThemeToggle floating />
         <div className="authbox">
-          <span className="eyebrow">ACAT · Despacho</span>
+          <Logo className="logo-lg" />
           <h1>Cadastro enviado!</h1>
           <p className="subtle">
             Aguarde a aprovação do administrador master. Assim que seu carro for aprovado, você já pode entrar

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { PasswordField } from "../../components/PasswordField";
 import { PhoneField } from "../../components/PhoneField";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { Logo } from "../../components/Logo";
 import { adminLogin, driverCheck, driverLogin } from "../../lib/authApi";
 import { useInvalidateAuth } from "../../context/AuthContext";
 import { ApiError } from "../../lib/api";
@@ -16,7 +17,7 @@ export function LoginPage() {
     <div id="authScreen">
       <ThemeToggle floating />
       <div className="authbox">
-        <span className="eyebrow">ACAT · Despacho</span>
+        <Logo className="logo-lg" />
         <h1>Entrar</h1>
         <div className="role-switch">
           <button type="button" className={role === "admin" ? "active" : ""} onClick={() => setRole("admin")}>

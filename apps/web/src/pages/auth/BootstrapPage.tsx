@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { maskUsername } from "@acat/shared";
 import { PasswordField } from "../../components/PasswordField";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { Logo } from "../../components/Logo";
 import { bootstrapMaster } from "../../lib/authApi";
 import { ApiError } from "../../lib/api";
 
@@ -33,7 +34,7 @@ export function BootstrapPage() {
     <div id="authScreen">
       <ThemeToggle floating />
       <div className="authbox">
-        <span className="eyebrow">ACAT · Despacho</span>
+        <Logo className="logo-lg" />
         <h1>Criar administrador master</h1>
         <p className="subtle">
           Nenhum administrador foi cadastrado ainda. A primeira conta criada aqui vira o administrador master —

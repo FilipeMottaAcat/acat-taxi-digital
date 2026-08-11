@@ -130,6 +130,53 @@ button.danger {
   text-transform: uppercase;
 }
 
+.eyebrow-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brand-mark {
+  height: 18px;
+  width: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.logo {
+  display: inline-block;
+  line-height: 0;
+}
+
+.logo-img {
+  height: 34px;
+  width: auto;
+  display: none;
+}
+
+.logo-img-dark {
+  display: inline-block;
+}
+
+html[data-theme="light"] .logo-img-dark {
+  display: none;
+}
+
+html[data-theme="light"] .logo-img-light {
+  display: inline-block;
+}
+
+.logo-lg {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.logo-lg .logo-img {
+  height: 88px;
+}
+
 .err {
   color: var(--red);
   font-size: 12.5px;

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { PasswordField } from "../../components/PasswordField";
 import { PhoneField } from "../../components/PhoneField";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { Logo } from "../../components/Logo";
 import { setDriverPassword } from "../../lib/authApi";
 import { useInvalidateAuth } from "../../context/AuthContext";
 import { ApiError } from "../../lib/api";
@@ -36,7 +37,7 @@ export function SetPasswordPage() {
     <div id="authScreen">
       <ThemeToggle floating />
       <div className="authbox">
-        <span className="eyebrow">ACAT · Despacho</span>
+        <Logo className="logo-lg" />
         <h1>Criar nova senha</h1>
         <p className="subtle">
           {phoneLocked
