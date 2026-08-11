@@ -42,6 +42,13 @@ export const sessionMiddleware = session({
 export function createApp() {
   const app = express();
 
+  // Render sits behind a reverse proxy (Cloudflare + Render's own edge). Without this,
+  // Express thinks every request is plain HTTP, so `cookie.secure` silently drops the
+  // Set-Cookie header on every response — the browser never gets a session cookie.
+  if (env.isProd) {
+    app.set("trust proxy", 1);
+  }
+
   app.disable("x-powered-by");
   app.use(express.json());
   app.use(sessionMiddleware);
