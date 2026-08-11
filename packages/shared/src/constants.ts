@@ -4,7 +4,7 @@ export type AdminRole = (typeof ADMIN_ROLES)[number];
 export const APPROVAL_STATUSES = ["pendente", "aprovado", "rejeitado", "bloqueado"] as const;
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
-export const OPERATIONAL_STATUSES = ["disponivel", "indisponivel", "em_viagem"] as const;
+export const OPERATIONAL_STATUSES = ["disponivel", "indisponivel"] as const;
 export type OperationalStatus = (typeof OPERATIONAL_STATUSES)[number];
 
 export const VIAGEM_CALL_STATUSES = ["aberto", "concluido", "cancelado"] as const;

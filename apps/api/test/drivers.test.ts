@@ -244,10 +244,11 @@ describe("driver self-service", () => {
     expect(res.body.driver.operationalStatus).toBe("disponivel");
   });
 
-  it("refuses to let a driver self-change status while em_viagem", async () => {
-    const { agent } = await loginAsDriver({ operationalStatus: "em_viagem" });
+  it("lets a driver toggle back to disponivel freely, with no locked state to work around", async () => {
+    const { agent } = await loginAsDriver({ operationalStatus: "indisponivel" });
     const res = await agent.patch("/api/drivers/me/status").send({ status: "disponivel" });
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
+    expect(res.body.driver.operationalStatus).toBe("disponivel");
   });
 
   it("creates a password reset request and blocks duplicates", async () => {

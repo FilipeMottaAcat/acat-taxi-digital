@@ -141,7 +141,7 @@ cidadeRouter.post("/calls/:id/aceitar", requireDriver, async (req, res) => {
   }
 
   emitToEveryone(SOCKET_EVENTS.cidadeAccepted, { callId: outcome.call.id });
-  emitToEveryone(SOCKET_EVENTS.driverStatusChanged, { driverId: driver.id, status: "em_viagem" });
+  emitToEveryone(SOCKET_EVENTS.driverStatusChanged, { driverId: driver.id, status: "indisponivel" });
 
   res.json({ call: publicCidadeCall(outcome.call) });
 });

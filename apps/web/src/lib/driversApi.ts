@@ -76,7 +76,3 @@ export function updateOwnStatus(status: "disponivel" | "indisponivel") {
 export function requestOwnPasswordReset() {
   return apiPost<{ request: { id: string; createdAt: string } }>("/api/drivers/me/request-password-reset");
 }
-
-export function finalizarCorrida() {
-  return apiPost<{ driver: DriverUser }>("/api/drivers/me/finalizar-corrida");
-}

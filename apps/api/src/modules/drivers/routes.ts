@@ -206,11 +206,6 @@ driversRouter.delete("/:id", requireMaster, validateBody(deleteDriverSchema), as
 
 driversRouter.patch("/me/status", requireDriver, validateBody(updateOwnStatusSchema), async (req, res) => {
   const driver = currentDriver(req);
-  if (driver.operationalStatus === "em_viagem") {
-    res.status(409).json({ error: 'Você está em viagem. Use "Finalizar corrida" para ficar disponível de novo.' });
-    return;
-  }
-
   const { status } = req.body as z.infer<typeof updateOwnStatusSchema>;
 
   // Deliberately NOT in the same transaction as tryAdvanceWaitingCall below: this update needs to
@@ -222,22 +217,6 @@ driversRouter.patch("/me/status", requireDriver, validateBody(updateOwnStatusSch
   const advance = status === "disponivel" ? await prisma.$transaction((tx) => tryAdvanceWaitingCall(tx)) : null;
 
   emitToEveryone(SOCKET_EVENTS.driverStatusChanged, { driverId: driver.id, status });
-  if (advance) emitAdvanceResult(advance);
-
-  res.json({ driver: publicDriver(updated) });
-});
-
-driversRouter.post("/me/finalizar-corrida", requireDriver, async (req, res) => {
-  const driver = currentDriver(req);
-  if (driver.operationalStatus !== "em_viagem") {
-    res.status(409).json({ error: "Você não está em viagem no momento." });
-    return;
-  }
-
-  const updated = await prisma.driver.update({ where: { id: driver.id }, data: { operationalStatus: "disponivel" } });
-  const advance = await prisma.$transaction((tx) => tryAdvanceWaitingCall(tx));
-
-  emitToEveryone(SOCKET_EVENTS.driverStatusChanged, { driverId: driver.id, status: "disponivel" });
   if (advance) emitAdvanceResult(advance);
 
   res.json({ driver: publicDriver(updated) });

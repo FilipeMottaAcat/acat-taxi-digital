@@ -22,7 +22,7 @@ export function emitAdvanceResult(result: AdvanceResult) {
     // assigned the call straight away instead of opening a fresh offer window for an answer we
     // already had.
     emitToEveryone(SOCKET_EVENTS.cidadeAccepted, { callId: result.callId });
-    emitToEveryone(SOCKET_EVENTS.driverStatusChanged, { driverId: result.driverId, status: "em_viagem" });
+    emitToEveryone(SOCKET_EVENTS.driverStatusChanged, { driverId: result.driverId, status: "indisponivel" });
 
     void pushToDriver(result.driverId, {
       title: "Corrida confirmada — Cotur Cidade",

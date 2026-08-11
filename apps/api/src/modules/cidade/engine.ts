@@ -11,12 +11,16 @@ export type AdvanceResult =
  * Finalizes a call as accepted by a driver — the one place that writes an acceptance, used both
  * when a driver explicitly clicks "Aceitar" for their official turn, and when the queue-advance
  * loop below finds they'd already pre-answered "disponivel" before their turn came up.
+ *
+ * Defaults the driver to indisponivel (a reasonable "just took a ride" default), but this is a
+ * plain status change, not a lock — the driver can flip themselves back to disponivel whenever
+ * they decide they're free, same as any other status change.
  */
 export async function finalizeCidadeAcceptance(tx: Prisma.TransactionClient, callId: string, driverId: string) {
   const cidadeQueueSeq = await nextCidadeQueueSeq(tx);
   const updatedDriver = await tx.driver.update({
     where: { id: driverId },
-    data: { operationalStatus: "em_viagem", cidadeQueueSeq },
+    data: { operationalStatus: "indisponivel", cidadeQueueSeq },
   });
   const updatedCall = await tx.coturCidadeCall.update({
     where: { id: callId },

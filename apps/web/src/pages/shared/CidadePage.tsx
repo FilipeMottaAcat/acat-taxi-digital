@@ -17,7 +17,7 @@ import {
   type CidadeCall,
   type CidadeResponse,
 } from "../../lib/cidadeApi";
-import { finalizarCorrida, updateOwnStatus } from "../../lib/driversApi";
+import { updateOwnStatus } from "../../lib/driversApi";
 import type { CurrentUser, DriverUser } from "../../types";
 
 function useInvalidateCidade() {
@@ -230,13 +230,12 @@ function ResponseBoard({
   call: CidadeCall;
 }) {
   const byDriver = new Map(responses.map((r) => [r.driverId, r.response]));
-  const onDuty = queue.filter((d) => d.operationalStatus !== "em_viagem");
 
   return (
     <div style={{ marginTop: 16 }}>
       <h3 style={{ fontSize: 14, marginBottom: 8 }}>Respostas dos motoristas</h3>
-      {onDuty.length === 0 && <p className="empty">Nenhum motorista na fila.</p>}
-      {onDuty.map((driver) => {
+      {queue.length === 0 && <p className="empty">Nenhum motorista na fila.</p>}
+      {queue.map((driver) => {
         const isCurrentCandidate = call.status === "offering" && call.candidateDriverId === driver.id;
         const isOffDuty = driver.operationalStatus !== "disponivel";
         const response = byDriver.get(driver.id);
@@ -289,19 +288,9 @@ function CidadeQueueRow({
     mutationFn: () => updateOwnStatus(driver.operationalStatus === "disponivel" ? "indisponivel" : "disponivel"),
     onSuccess: () => onChanged(),
   });
-  const finish = useMutation({
-    mutationFn: () => finalizarCorrida(),
-    onSuccess: () => onChanged(),
-  });
 
-  const statusClass =
-    driver.operationalStatus === "disponivel" ? "disp" : driver.operationalStatus === "em_viagem" ? "viagem" : "indisp";
-  const statusLabel =
-    driver.operationalStatus === "disponivel"
-      ? "Disponível"
-      : driver.operationalStatus === "em_viagem"
-        ? "Em viagem"
-        : "Indisponível";
+  const statusClass = driver.operationalStatus === "disponivel" ? "disp" : "indisp";
+  const statusLabel = driver.operationalStatus === "disponivel" ? "Disponível" : "Indisponível";
 
   return (
     <div className="queue-row">
@@ -310,11 +299,7 @@ function CidadeQueueRow({
         <div className="carnum">{driver.carNumber}</div>
         <div className="nome">{driver.name}</div>
       </div>
-      {isSelf && driver.operationalStatus === "em_viagem" ? (
-        <button className="ghost" onClick={() => finish.mutate()} disabled={finish.isPending}>
-          {finish.isPending ? "Finalizando…" : "Finalizar corrida"}
-        </button>
-      ) : isSelf ? (
+      {isSelf ? (
         <button className={`toggle ${statusClass}`} onClick={() => toggle.mutate()} disabled={toggle.isPending}>
           {statusLabel}
         </button>

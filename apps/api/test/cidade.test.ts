@@ -29,7 +29,7 @@ async function makeDriver(overrides: {
   carNumber: string;
   phone: string;
   cidadeQueueSeq?: number;
-  operationalStatus?: "disponivel" | "indisponivel" | "em_viagem";
+  operationalStatus?: "disponivel" | "indisponivel";
 }) {
   const driver = await prisma.driver.create({
     data: {
@@ -122,7 +122,7 @@ describe("engine: creating a call offers to the first available driver by queue 
 });
 
 describe("accept / decline", () => {
-  it("only the current candidate can accept; accepting moves them em_viagem and to the back of the queue", async () => {
+  it("only the current candidate can accept; accepting defaults them to indisponivel and sends them to the back of the queue", async () => {
     const { agent: candidateAgent, driver: candidate } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0010", cidadeQueueSeq: 1 });
     const { agent: otherAgent } = await makeDriver({ carNumber: "519", phone: "(13) 90002-0011", cidadeQueueSeq: 2 });
     const master = await loginAsMaster();
@@ -137,10 +137,24 @@ describe("accept / decline", () => {
     expect(accepted.body.call.status).toBe("concluido");
 
     const freshDriver = await prisma.driver.findUniqueOrThrow({ where: { id: candidate.id } });
-    expect(freshDriver.operationalStatus).toBe("em_viagem");
+    expect(freshDriver.operationalStatus).toBe("indisponivel");
 
     const current = await master.get("/api/cidade/current");
     expect(current.body.call).toBeNull();
+  });
+
+  it("a driver can flip themselves back to disponivel right after accepting a call — no lock, self-managed", async () => {
+    const { agent: candidateAgent, driver: candidate } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0017", cidadeQueueSeq: 1 });
+    const master = await loginAsMaster();
+    const created = await createCall(master);
+
+    await candidateAgent.post(`/api/cidade/calls/${created.body.call.id}/aceitar`);
+    const freshDriver = await prisma.driver.findUniqueOrThrow({ where: { id: candidate.id } });
+    expect(freshDriver.operationalStatus).toBe("indisponivel");
+
+    const flip = await candidateAgent.patch("/api/drivers/me/status").send({ status: "disponivel" });
+    expect(flip.status).toBe(200);
+    expect(flip.body.driver.operationalStatus).toBe("disponivel");
   });
 
   it("declining moves the candidate to the back and offers the next disponivel driver a fresh SLA", async () => {
@@ -256,19 +270,21 @@ describe("waiting_for_available: driver becoming available triggers immediate of
     expect(new Date(current.body.call.offerExpiresAt).getTime()).toBeGreaterThan(Date.now());
   });
 
-  it("also triggers on finalizar-corrida (finishing a trip while a call is waiting)", async () => {
-    const { agent, driver } = await makeDriver({
-      carNumber: "543",
-      phone: "(13) 90002-0031",
-      operationalStatus: "em_viagem",
-    });
+  it("also triggers when a driver who just accepted a ride flips themselves back to disponivel (self-managed, no finalize step)", async () => {
+    const { agent, driver } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0031", cidadeQueueSeq: 1 });
     const master = await loginAsMaster();
-    const created = await createCall(master);
-    expect(created.body.call.status).toBe("waiting_for_available");
 
-    const finish = await agent.post("/api/drivers/me/finalizar-corrida");
-    expect(finish.status).toBe(200);
-    expect(finish.body.driver.operationalStatus).toBe("disponivel");
+    const firstCall = await createCall(master);
+    await agent.post(`/api/cidade/calls/${firstCall.body.call.id}/aceitar`);
+    const midTrip = await prisma.driver.findUniqueOrThrow({ where: { id: driver.id } });
+    expect(midTrip.operationalStatus).toBe("indisponivel");
+
+    const secondCall = await createCall(master);
+    expect(secondCall.body.call.status).toBe("waiting_for_available");
+
+    const flip = await agent.patch("/api/drivers/me/status").send({ status: "disponivel" });
+    expect(flip.status).toBe(200);
+    expect(flip.body.driver.operationalStatus).toBe("disponivel");
 
     const current = await master.get("/api/cidade/current");
     expect(current.body.call.status).toBe("offering");
@@ -418,7 +434,7 @@ describe("pre-answers: drivers can respond before their official turn", () => {
     expect(closed.acceptedCarSnap).toBe(b.carNumber);
 
     const freshB = await prisma.driver.findUniqueOrThrow({ where: { id: b.id } });
-    expect(freshB.operationalStatus).toBe("em_viagem");
+    expect(freshB.operationalStatus).toBe("indisponivel");
 
     const events = await master.get(`/api/cidade/calls/${callId}/events`);
     expect(events.body.events.map((e: any) => e.type)).toEqual(["offered", "declined", "accepted"]);
