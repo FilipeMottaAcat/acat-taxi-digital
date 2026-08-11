@@ -51,6 +51,11 @@ enum CidadeEventType {
   cancelled
 }
 
+enum CidadeResponseType {
+  disponivel
+  indisponivel
+}
+
 model Admin {
   id           String    @id @default(cuid())
   nome         String
@@ -97,6 +102,7 @@ model Driver {
   cidadeCandidateFor CoturCidadeCall[]  @relation("CidadeCandidate")
   cidadeAccepted     CoturCidadeCall[]  @relation("CidadeAcceptedBy")
   cidadeEvents       CoturCidadeCallEvent[]
+  cidadeResponses    CoturCidadeCallResponse[]
   passwordResetRequests PasswordResetRequest[] @relation("DriverResetRequests")
 
   @@index([approvalStatus, blocked, operationalStatus])
@@ -184,7 +190,8 @@ model CoturCidadeCall {
   cancelledByAdmin    Admin?            @relation("CidadeCancelledBy", fields: [cancelledByAdminId], references: [id])
   cancelledAt         DateTime? @db.Timestamptz
 
-  events CoturCidadeCallEvent[]
+  events    CoturCidadeCallEvent[]
+  responses CoturCidadeCallResponse[]
 
   @@index([status])
 }
@@ -200,5 +207,23 @@ model CoturCidadeCallEvent {
   nameSnap  String?
   createdAt DateTime        @default(now()) @db.Timestamptz
 
+  @@index([callId])
+}
+
+/// A driver's early, self-reported answer ("I want this ride" / "not this one") for a call that
+/// isn't their official turn yet. The engine consults this the moment it would otherwise offer
+/// them the call or make them wait — so it can skip straight to the next driver, or straight to
+/// assignment, instead of opening a fresh SLA window for an answer we already have.
+model CoturCidadeCallResponse {
+  id        String              @id @default(cuid())
+  callId    String
+  call      CoturCidadeCall     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  driverId  String
+  driver    Driver              @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  response  CidadeResponseType
+  createdAt DateTime            @default(now()) @db.Timestamptz
+  updatedAt DateTime            @updatedAt @db.Timestamptz
+
+  @@unique([callId, driverId])
   @@index([callId])
 }

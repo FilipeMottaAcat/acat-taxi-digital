@@ -348,6 +348,139 @@ describe("history", () => {
   });
 });
 
+describe("pre-answers: drivers can respond before their official turn", () => {
+  it("a non-candidate can't use /responder to skip the line while it's their turn already", async () => {
+    const { agent, driver } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0070", cidadeQueueSeq: 1 });
+    const master = await loginAsMaster();
+    const created = await createCall(master);
+    expect(created.body.call.candidateDriverId).toBe(driver.id);
+
+    const res = await agent.post(`/api/cidade/calls/${created.body.call.id}/responder`).send({ resposta: "disponivel" });
+    expect(res.status).toBe(409);
+  });
+
+  it("pre-answering 'indisponivel' makes the driver get skipped the instant their turn comes, no timer wasted", async () => {
+    const { driver: a } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0071", cidadeQueueSeq: 1 });
+    const { agent: bAgent, driver: b } = await makeDriver({ carNumber: "519", phone: "(13) 90002-0072", cidadeQueueSeq: 2 });
+    const { driver: c } = await makeDriver({ carNumber: "521", phone: "(13) 90002-0073", cidadeQueueSeq: 3 });
+    const master = await loginAsMaster();
+    const created = await createCall(master);
+    const callId = created.body.call.id;
+    expect(created.body.call.candidateDriverId).toBe(a.id);
+
+    // B (not yet the candidate) pre-answers "indisponivel" while A is still officially offering.
+    const pre = await bAgent.post(`/api/cidade/calls/${callId}/responder`).send({ resposta: "indisponivel" });
+    expect(pre.status).toBe(200);
+    expect(pre.body.response).toEqual({ driverId: b.id, response: "indisponivel", updatedAt: expect.any(String) });
+
+    // A declines -> engine must skip straight past B (already answered no) and land on C.
+    const aAgent = request.agent(app);
+    await aAgent.post("/api/auth/driver/login").send({ telefone: a.phone, senha: "senha123" });
+    const declined = await aAgent.post(`/api/cidade/calls/${callId}/recusar`);
+    expect(declined.status).toBe(204);
+
+    const current = await master.get("/api/cidade/current");
+    expect(current.body.call.candidateDriverId).toBe(c.id);
+    expect(current.body.call.status).toBe("offering");
+
+    // B was consumed (skipped) for this call and sent to the back of the queue, same as an explicit decline.
+    const freshB = await prisma.driver.findUniqueOrThrow({ where: { id: b.id } });
+    const freshC = await prisma.driver.findUniqueOrThrow({ where: { id: c.id } });
+    expect(freshB.cidadeQueueSeq > freshC.cidadeQueueSeq).toBe(true);
+
+    const events = await master.get(`/api/cidade/calls/${callId}/events`);
+    expect(events.body.events.map((e: any) => e.type)).toEqual(["offered", "declined", "declined", "offered"]);
+  });
+
+  it("pre-answering 'disponivel' auto-assigns the call the instant it's their turn, skipping the offer/timer step entirely", async () => {
+    const { driver: a } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0074", cidadeQueueSeq: 1 });
+    const { agent: bAgent, driver: b } = await makeDriver({ carNumber: "519", phone: "(13) 90002-0075", cidadeQueueSeq: 2 });
+    const master = await loginAsMaster();
+    const created = await createCall(master);
+    const callId = created.body.call.id;
+    expect(created.body.call.candidateDriverId).toBe(a.id);
+
+    const pre = await bAgent.post(`/api/cidade/calls/${callId}/responder`).send({ resposta: "disponivel" });
+    expect(pre.status).toBe(200);
+
+    const aAgent = request.agent(app);
+    await aAgent.post("/api/auth/driver/login").send({ telefone: a.phone, senha: "senha123" });
+    const declined = await aAgent.post(`/api/cidade/calls/${callId}/recusar`);
+    expect(declined.status).toBe(204);
+
+    // No "offering" step for B — the call should already be concluido, assigned straight to B.
+    const current = await master.get("/api/cidade/current");
+    expect(current.body.call).toBeNull();
+
+    const history = await master.get("/api/cidade/history");
+    const closed = history.body.calls.find((c: any) => c.id === callId);
+    expect(closed.status).toBe("concluido");
+    expect(closed.acceptedCarSnap).toBe(b.carNumber);
+
+    const freshB = await prisma.driver.findUniqueOrThrow({ where: { id: b.id } });
+    expect(freshB.operationalStatus).toBe("em_viagem");
+
+    const events = await master.get(`/api/cidade/calls/${callId}/events`);
+    expect(events.body.events.map((e: any) => e.type)).toEqual(["offered", "declined", "accepted"]);
+  });
+
+  it("still respects queue order: an early 'disponivel' from someone further back never jumps ahead of an unanswered higher-priority driver", async () => {
+    const { driver: a } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0076", cidadeQueueSeq: 1 });
+    const { agent: bAgent, driver: b } = await makeDriver({ carNumber: "519", phone: "(13) 90002-0077", cidadeQueueSeq: 2 });
+    const master = await loginAsMaster();
+    const created = await createCall(master);
+    const callId = created.body.call.id;
+
+    // B answers "disponivel" early, but A (first in line) hasn't answered at all yet.
+    await bAgent.post(`/api/cidade/calls/${callId}/responder`).send({ resposta: "disponivel" });
+
+    const current = await master.get("/api/cidade/current");
+    expect(current.body.call.status).toBe("offering");
+    expect(current.body.call.candidateDriverId).toBe(a.id); // still A's turn, not auto-jumped to B
+  });
+
+  it("GET /current exposes the response board so admins can see who answered what in real time", async () => {
+    const { driver: a } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0078", cidadeQueueSeq: 1 });
+    const { agent: bAgent, driver: b } = await makeDriver({ carNumber: "519", phone: "(13) 90002-0079", cidadeQueueSeq: 2 });
+    const master = await loginAsMaster();
+    const created = await createCall(master);
+    const callId = created.body.call.id;
+    expect(created.body.call.candidateDriverId).toBe(a.id);
+
+    await bAgent.post(`/api/cidade/calls/${callId}/responder`).send({ resposta: "indisponivel" });
+
+    const current = await master.get("/api/cidade/current");
+    expect(current.body.responses).toEqual([{ driverId: b.id, response: "indisponivel", updatedAt: expect.any(String) }]);
+  });
+
+  it("a driver can change their mind before their turn comes, upserting the latest answer", async () => {
+    const { driver: a } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0080", cidadeQueueSeq: 1 });
+    const { agent: bAgent, driver: b } = await makeDriver({ carNumber: "519", phone: "(13) 90002-0081", cidadeQueueSeq: 2 });
+    const master = await loginAsMaster();
+    const created = await createCall(master);
+    const callId = created.body.call.id;
+
+    await bAgent.post(`/api/cidade/calls/${callId}/responder`).send({ resposta: "indisponivel" });
+    await bAgent.post(`/api/cidade/calls/${callId}/responder`).send({ resposta: "disponivel" });
+
+    const current = await master.get("/api/cidade/current");
+    expect(current.body.responses).toEqual([{ driverId: b.id, response: "disponivel", updatedAt: expect.any(String) }]);
+
+    const aAgent = request.agent(app);
+    await aAgent.post("/api/auth/driver/login").send({ telefone: a.phone, senha: "senha123" });
+    await aAgent.post(`/api/cidade/calls/${callId}/recusar`);
+
+    const after = await master.get("/api/cidade/current");
+    expect(after.body.call).toBeNull(); // B's latest answer (disponivel) won, auto-accepted
+  });
+
+  it("rejects responding to a call that doesn't exist or is already closed", async () => {
+    const { agent } = await makeDriver({ carNumber: "543", phone: "(13) 90002-0082" });
+    const res = await agent.post("/api/cidade/calls/does-not-exist/responder").send({ resposta: "disponivel" });
+    expect(res.status).toBe(404);
+  });
+});
+
 describe("concurrency: two drivers becoming available at once while a call waits", () => {
   it("safety: exactly one becomes the candidate, never both, never neither", async () => {
     // Note on determinism: the driver-status write is decoupled from the call-row lock specifically

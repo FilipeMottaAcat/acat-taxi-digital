@@ -1,4 +1,11 @@
-import type { Admin, CoturCidadeCall, CoturCidadeCallEvent, CoturViagemCall, Driver } from "@prisma/client";
+import type {
+  Admin,
+  CoturCidadeCall,
+  CoturCidadeCallEvent,
+  CoturCidadeCallResponse,
+  CoturViagemCall,
+  Driver,
+} from "@prisma/client";
 
 export function publicAdmin(admin: Admin) {
   return {
@@ -79,3 +86,12 @@ export function publicCidadeEvent(event: CoturCidadeCallEvent) {
   };
 }
 export type PublicCidadeEvent = ReturnType<typeof publicCidadeEvent>;
+
+export function publicCidadeResponse(response: CoturCidadeCallResponse) {
+  return {
+    driverId: response.driverId,
+    response: response.response,
+    updatedAt: response.updatedAt,
+  };
+}
+export type PublicCidadeResponse = ReturnType<typeof publicCidadeResponse>;

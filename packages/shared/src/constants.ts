@@ -31,6 +31,10 @@ export const CIDADE_EVENT_TYPES = [
 ] as const;
 export type CidadeEventType = (typeof CIDADE_EVENT_TYPES)[number];
 
+/** A driver's early self-reported answer for a call that isn't their official turn yet. */
+export const CIDADE_RESPONSE_TYPES = ["disponivel", "indisponivel"] as const;
+export type CidadeResponseType = (typeof CIDADE_RESPONSE_TYPES)[number];
+
 /** SLA duration in minutes per Cotur Cidade call type. */
 export const CIDADE_SLA_MINUTES: Record<CidadeCallType, number> = {
   agendada: 30,
@@ -55,6 +59,7 @@ export const SOCKET_EVENTS = {
   cidadeAccepted: "cidade:accepted",
   cidadeCancelled: "cidade:cancelled",
   cidadeQueueUpdated: "cidade:queue_updated",
+  cidadeResponseUpdated: "cidade:response_updated",
   driverStatusChanged: "driver:status_changed",
   adminNotification: "admin:notification",
 } as const;

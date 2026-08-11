@@ -13,10 +13,12 @@ import {
   declineCidadeCall,
   getCidadeCurrent,
   getCidadeQueue,
+  respondCidadeCall,
   type CidadeCall,
+  type CidadeResponse,
 } from "../../lib/cidadeApi";
 import { finalizarCorrida, updateOwnStatus } from "../../lib/driversApi";
-import type { DriverUser } from "../../types";
+import type { CurrentUser, DriverUser } from "../../types";
 
 function useInvalidateCidade() {
   const queryClient = useQueryClient();
@@ -46,9 +48,11 @@ export function CidadePage() {
   useSocketEvent(SOCKET_EVENTS.cidadeCancelled, onEvent);
   useSocketEvent(SOCKET_EVENTS.cidadeQueueUpdated, onEvent);
   useSocketEvent(SOCKET_EVENTS.driverStatusChanged, onEvent);
+  useSocketEvent(SOCKET_EVENTS.cidadeResponseUpdated, onEvent);
 
   const call = currentQuery.data?.call ?? null;
   const candidate = currentQuery.data?.candidate ?? null;
+  const responses = currentQuery.data?.responses ?? [];
   const queue = queueQuery.data?.queue ?? [];
   const isAdmin = user?.type === "admin";
   const isCandidate = user?.type === "driver" && call?.candidateDriverId === user.id;
@@ -75,9 +79,12 @@ export function CidadePage() {
             candidate={candidate}
             isCandidate={isCandidate}
             isMaster={isMaster}
+            currentUser={user}
             onChanged={invalidate}
           />
         )}
+
+        {call && isAdmin && <ResponseBoard queue={queue} responses={responses} call={call} />}
       </div>
 
       <div className="panel">
@@ -104,12 +111,14 @@ function CidadeCallCard({
   candidate,
   isCandidate,
   isMaster,
+  currentUser,
   onChanged,
 }: {
   call: CidadeCall;
   candidate: DriverUser | null;
   isCandidate: boolean;
   isMaster: boolean;
+  currentUser: CurrentUser | null;
   onChanged: () => Promise<unknown>;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -127,8 +136,15 @@ function CidadeCallCard({
     mutationFn: () => cancelCidadeCall(call.id),
     onSuccess: () => onChanged(),
   });
+  const respond = useMutation({
+    mutationFn: (resposta: "disponivel" | "indisponivel") => respondCidadeCall(call.id, resposta),
+    onSuccess: () => onChanged(),
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Não foi possível responder."),
+  });
 
   const waiting = call.status === "waiting_for_available";
+  const isOnDutyDriver =
+    currentUser?.type === "driver" && currentUser.operationalStatus === "disponivel" && !isCandidate;
 
   return (
     <div className={`active-call ${isCandidate ? "" : "readonly"}`}>
@@ -156,6 +172,13 @@ function CidadeCallCard({
         </>
       )}
 
+      {isOnDutyDriver && (
+        <div className="waitmsg" style={{ marginTop: 10 }}>
+          Você pode responder a essa corrida antes da sua vez chegar — se disser disponível e a vez chegar até
+          você, a corrida já é confirmada na hora.
+        </div>
+      )}
+
       {error && <p className="err">{error}</p>}
 
       <div className="call-actions" style={{ marginTop: 12 }}>
@@ -169,12 +192,84 @@ function CidadeCallCard({
             </button>
           </>
         )}
+        {isOnDutyDriver && (
+          <>
+            <button
+              className="btn-accept"
+              onClick={() => respond.mutate("disponivel")}
+              disabled={respond.isPending}
+            >
+              Disponível para essa corrida
+            </button>
+            <button
+              className="btn-skip"
+              onClick={() => respond.mutate("indisponivel")}
+              disabled={respond.isPending}
+            >
+              Indisponível para essa corrida
+            </button>
+          </>
+        )}
         {isMaster && (
           <button className="btn-skip" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
             Cancelar chamada
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function ResponseBoard({
+  queue,
+  responses,
+  call,
+}: {
+  queue: DriverUser[];
+  responses: CidadeResponse[];
+  call: CidadeCall;
+}) {
+  const byDriver = new Map(responses.map((r) => [r.driverId, r.response]));
+  const onDuty = queue.filter((d) => d.operationalStatus !== "em_viagem");
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <h3 style={{ fontSize: 14, marginBottom: 8 }}>Respostas dos motoristas</h3>
+      {onDuty.length === 0 && <p className="empty">Nenhum motorista na fila.</p>}
+      {onDuty.map((driver) => {
+        const isCurrentCandidate = call.status === "offering" && call.candidateDriverId === driver.id;
+        const isOffDuty = driver.operationalStatus !== "disponivel";
+        const response = byDriver.get(driver.id);
+
+        let label: string;
+        let className: string;
+        if (isOffDuty) {
+          label = "Fora de serviço";
+          className = "indisp";
+        } else if (isCurrentCandidate) {
+          label = "Respondendo agora (prazo em andamento)";
+          className = "viagem";
+        } else if (response === "disponivel") {
+          label = "Disponível";
+          className = "disp";
+        } else if (response === "indisponivel") {
+          label = "Indisponível";
+          className = "indisp";
+        } else {
+          label = "Aguardando resposta";
+          className = "indisp";
+        }
+
+        return (
+          <div className="queue-row" key={driver.id}>
+            <div className="carwrap">
+              <div className="carnum">{driver.carNumber}</div>
+              <div className="nome">{driver.name}</div>
+            </div>
+            <span className={`toggle ${className}`}>{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

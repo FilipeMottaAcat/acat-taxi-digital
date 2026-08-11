@@ -7,6 +7,7 @@ process.env.NODE_ENV = "test";
 
 beforeEach(async () => {
   const { prisma } = await import("../src/lib/prisma.js");
+  await prisma.coturCidadeCallResponse.deleteMany();
   await prisma.coturCidadeCallEvent.deleteMany();
   await prisma.coturCidadeCall.deleteMany();
   await prisma.coturViagemCall.deleteMany();

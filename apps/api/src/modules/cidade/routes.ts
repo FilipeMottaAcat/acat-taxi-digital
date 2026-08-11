@@ -1,17 +1,16 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { CoturCidadeCall } from "@prisma/client";
-import { createCidadeCallSchema, SOCKET_EVENTS } from "@acat/shared";
+import { createCidadeCallSchema, respondCidadeCallSchema, SOCKET_EVENTS } from "@acat/shared";
 import { prisma } from "../../lib/prisma.js";
 import { validateBody } from "../../middleware/validate.js";
 import { currentAdmin, currentDriver, requireAdmin, requireAuth, requireDriver, requireMaster } from "../../middleware/auth.js";
-import { publicCidadeCall, publicCidadeEvent, publicDriver } from "../../lib/dto.js";
+import { publicCidadeCall, publicCidadeEvent, publicCidadeResponse, publicDriver } from "../../lib/dto.js";
 import { isFutureOrNow } from "../../lib/datetime.js";
 import { emitToEveryone } from "../../realtime/io.js";
-import { advanceCoturCidadeQueue, lockCall, sendDriverToBackOfCidadeQueue, type AdvanceResult } from "./engine.js";
+import { pushToAllDrivers } from "../../lib/push.js";
+import { advanceCoturCidadeQueue, finalizeCidadeAcceptance, lockCall, sendDriverToBackOfCidadeQueue, type AdvanceResult } from "./engine.js";
 import { emitAdvanceResult } from "./notify.js";
 import { cidadeSortedQueue } from "./queue.js";
-import { nextCidadeQueueSeq } from "../drivers/queueOrder.js";
 
 export const cidadeRouter = Router();
 cidadeRouter.use(requireAuth);
@@ -26,13 +25,18 @@ cidadeRouter.get("/queue", async (_req, res) => {
 cidadeRouter.get("/current", async (_req, res) => {
   const call = await prisma.coturCidadeCall.findFirst({ where: { status: { in: [...ACTIVE_STATUSES] } } });
   if (!call) {
-    res.json({ call: null, candidate: null });
+    res.json({ call: null, candidate: null, responses: [] });
     return;
   }
-  const candidate = call.candidateDriverId
-    ? await prisma.driver.findUnique({ where: { id: call.candidateDriverId } })
-    : null;
-  res.json({ call: publicCidadeCall(call), candidate: candidate ? publicDriver(candidate) : null });
+  const [candidate, responses] = await Promise.all([
+    call.candidateDriverId ? prisma.driver.findUnique({ where: { id: call.candidateDriverId } }) : null,
+    prisma.coturCidadeCallResponse.findMany({ where: { callId: call.id } }),
+  ]);
+  res.json({
+    call: publicCidadeCall(call),
+    candidate: candidate ? publicDriver(candidate) : null,
+    responses: responses.map(publicCidadeResponse),
+  });
 });
 
 cidadeRouter.get("/calls/:id/events", requireMaster, async (req, res) => {
@@ -83,35 +87,51 @@ cidadeRouter.post("/calls", requireAdmin, validateBody(createCidadeCallSchema), 
   emitToEveryone(SOCKET_EVENTS.cidadeCallCreated, { callId: call.id });
   emitAdvanceResult(result);
 
+  // Every registered driver gets paged the moment a call is dispatched — not just whoever's
+  // officially "up" — so anyone can pre-answer disponível/indisponível ahead of their turn.
+  void pushToAllDrivers({
+    title: "Nova corrida — Cotur Cidade",
+    body: `Corrida despachada para ${cidade}. Confira se você está disponível.`,
+    url: "/driver/cidade",
+  });
+
   res.status(201).json({ call: publicCidadeCall(call) });
+});
+
+cidadeRouter.post("/calls/:id/responder", requireDriver, validateBody(respondCidadeCallSchema), async (req, res) => {
+  const driver = currentDriver(req);
+  const { resposta } = req.body as z.infer<typeof respondCidadeCallSchema>;
+
+  const call = await prisma.coturCidadeCall.findUnique({ where: { id: req.params.id } });
+  if (!call || !ACTIVE_STATUSES.includes(call.status as (typeof ACTIVE_STATUSES)[number])) {
+    res.status(404).json({ error: "Chamada não encontrada ou já encerrada." });
+    return;
+  }
+  if (call.status === "offering" && call.candidateDriverId === driver.id) {
+    res.status(409).json({ error: "É a sua vez nessa chamada — use Aceitar ou Recusar." });
+    return;
+  }
+
+  const response = await prisma.coturCidadeCallResponse.upsert({
+    where: { callId_driverId: { callId: call.id, driverId: driver.id } },
+    create: { callId: call.id, driverId: driver.id, response: resposta },
+    update: { response: resposta },
+  });
+
+  emitToEveryone(SOCKET_EVENTS.cidadeResponseUpdated, { callId: call.id, driverId: driver.id, response: resposta });
+
+  res.json({ response: publicCidadeResponse(response) });
 });
 
 cidadeRouter.post("/calls/:id/aceitar", requireDriver, async (req, res) => {
   const driver = currentDriver(req);
 
-  const outcome = await prisma.$transaction<{ error: 404 | 403 } | { call: CoturCidadeCall }>(async (tx) => {
+  const outcome = await prisma.$transaction<{ error: 404 | 403 } | { call: Awaited<ReturnType<typeof finalizeCidadeAcceptance>> }>(async (tx) => {
     const call = await lockCall(tx, req.params.id);
     if (!call || call.status !== "offering") return { error: 404 };
     if (call.candidateDriverId !== driver.id) return { error: 403 };
 
-    const cidadeQueueSeq = await nextCidadeQueueSeq(tx);
-    const updatedDriver = await tx.driver.update({
-      where: { id: driver.id },
-      data: { operationalStatus: "em_viagem", cidadeQueueSeq },
-    });
-    const updatedCall = await tx.coturCidadeCall.update({
-      where: { id: call.id },
-      data: {
-        status: "concluido",
-        acceptedDriverId: driver.id,
-        acceptedCarSnap: updatedDriver.carNumber,
-        acceptedNameSnap: updatedDriver.name,
-        acceptedAt: new Date(),
-      },
-    });
-    await tx.coturCidadeCallEvent.create({
-      data: { callId: call.id, type: "accepted", driverId: driver.id, carSnap: updatedDriver.carNumber, nameSnap: updatedDriver.name },
-    });
+    const updatedCall = await finalizeCidadeAcceptance(tx, call.id, driver.id);
     return { call: updatedCall };
   });
 

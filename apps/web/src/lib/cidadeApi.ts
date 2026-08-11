@@ -28,12 +28,20 @@ export interface CidadeEvent {
   createdAt: string;
 }
 
+export interface CidadeResponse {
+  driverId: string;
+  response: "disponivel" | "indisponivel";
+  updatedAt: string;
+}
+
 export function getCidadeQueue() {
   return apiGet<{ queue: DriverUser[] }>("/api/cidade/queue");
 }
 
 export function getCidadeCurrent() {
-  return apiGet<{ call: CidadeCall | null; candidate: DriverUser | null }>("/api/cidade/current");
+  return apiGet<{ call: CidadeCall | null; candidate: DriverUser | null; responses: CidadeResponse[] }>(
+    "/api/cidade/current",
+  );
 }
 
 export function getCidadeHistory() {
@@ -54,6 +62,10 @@ export function acceptCidadeCall(id: string) {
 
 export function declineCidadeCall(id: string) {
   return apiPost<void>(`/api/cidade/calls/${id}/recusar`);
+}
+
+export function respondCidadeCall(id: string, resposta: "disponivel" | "indisponivel") {
+  return apiPost<{ response: CidadeResponse }>(`/api/cidade/calls/${id}/responder`, { resposta });
 }
 
 export function cancelCidadeCall(id: string) {
