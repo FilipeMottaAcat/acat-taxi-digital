@@ -8,6 +8,7 @@ import { currentAdmin, currentDriver, requireAdmin, requireAuth, requireDriver, 
 import { publicDriver, publicViagemCall } from "../../lib/dto.js";
 import { isFutureOrNow } from "../../lib/datetime.js";
 import { emitToEveryone } from "../../realtime/io.js";
+import { pushToDriver } from "../../lib/push.js";
 import { viagemSortedQueue } from "./queue.js";
 
 export const viagemRouter = Router();
@@ -66,6 +67,11 @@ viagemRouter.post("/requests", requireAdmin, validateBody(createViagemRequestSch
   });
 
   emitToEveryone(SOCKET_EVENTS.viagemRequestCreated, { callId: call.id });
+  void pushToDriver(queue[0].id, {
+    title: "Nova viagem — Cotur Viagem",
+    body: `É a sua vez, carro ${queue[0].carNumber}! Cidade: ${cidade}.`,
+    url: "/driver",
+  });
 
   res.status(201).json({ call: publicViagemCall(call), nextDriver: publicDriver(queue[0]) });
 });
