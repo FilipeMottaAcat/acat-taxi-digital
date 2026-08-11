@@ -5,7 +5,6 @@ import { useAuth } from "../../context/AuthContext";
 import { useSocketEvent } from "../../hooks/useSocket";
 import { ApiError } from "../../lib/api";
 import { CountdownTimer } from "../../components/CountdownTimer";
-import { PushPrompt } from "../../components/PushPrompt";
 import {
   acceptCidadeCall,
   cancelCidadeCall,
@@ -59,7 +58,6 @@ export function CidadePage() {
 
   return (
     <>
-      <PushPrompt />
       <div className="panel">
         <h2>Cotur Cidade</h2>
         <p className="subtle">

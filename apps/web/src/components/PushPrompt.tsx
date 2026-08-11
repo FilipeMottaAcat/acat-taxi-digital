@@ -18,7 +18,7 @@ export function PushPrompt() {
           <p className="subtle">
             Ative as notificações para saber na hora quando uma corrida chegar, mesmo com o app fechado.
           </p>
-          <button className="ghost" onClick={() => subscribe()} disabled={busy}>
+          <button className="primary" onClick={() => subscribe()} disabled={busy}>
             {busy ? "Ativando…" : "Ativar notificações"}
           </button>
         </>

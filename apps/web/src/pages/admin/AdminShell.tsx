@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import { AppHeader } from "../../components/AppHeader";
 import { BottomNav } from "../../components/BottomNav";
+import { PushPrompt } from "../../components/PushPrompt";
 import { useAuth } from "../../context/AuthContext";
 import { ViagemPage } from "../shared/ViagemPage";
 import { CidadePage } from "../shared/CidadePage";
@@ -24,6 +25,7 @@ export function AdminShell() {
     <div id="app">
       <AppHeader title="Painel Admin" />
       <main className="app-main">
+        <PushPrompt />
         <Routes>
           <Route index element={<ViagemPage />} />
           <Route path="cidade" element={<CidadePage />} />
